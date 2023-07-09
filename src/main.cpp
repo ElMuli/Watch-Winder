@@ -8,18 +8,23 @@ const char* password = WIFI_PASSWORD;
 
 const int motorPin = D5;       // Pin GPIO utilizado para controlar el motor
 const int ledPin = D7;         // Pin GPIO utilizado para controlar el LED
-const int numPixels = 1;      // Número total de LEDs
+const int numPixels = 1;       // Número total de LEDs
 
 Adafruit_NeoPixel pixels(numPixels, ledPin, NEO_GRB + NEO_KHZ800);
 
 ESP8266WebServer server(80);
+
+unsigned long tiempoEncendido = 120000;  // 2 minutos en milisegundos
+unsigned long tiempoApagado = 300000;    // 5 minutos en milisegundos
+unsigned long tiempoInicio = 0;
+bool motorEncendido = false;
 
 void handleRoot() {
   String html = "<html><body>";
   html += "<h1>Control del motor y LED</h1>";
   html += "<p>Estado del motor: ";
   
-  if (digitalRead(motorPin) == HIGH) {
+  if (motorEncendido) {
     html += "Encendido</p>";
   } else {
     html += "Apagado</p>";
@@ -43,11 +48,14 @@ void handleRoot() {
 void handleEncenderMotor() {
   digitalWrite(motorPin, HIGH);
   server.send(200, "text/plain", "Motor encendido");
+  motorEncendido = true;
+  tiempoInicio = millis(); // Reinicia el tiempo de inicio
 }
 
 void handleApagarMotor() {
   digitalWrite(motorPin, LOW);
   server.send(200, "text/plain", "Motor apagado");
+  motorEncendido = false;
 }
 
 void handleEncenderLED() {
@@ -91,4 +99,16 @@ void setup() {
 
 void loop() {
   server.handleClient();
+  
+  if (motorEncendido) {
+    unsigned long tiempoActual = millis() - tiempoInicio;
+    
+    if (tiempoActual >= tiempoEncendido) {
+      digitalWrite(motorPin, LOW); // Apaga el motor después de tiempoEncendido
+    }
+    if (tiempoActual >= (tiempoEncendido + tiempoApagado)) {
+      digitalWrite(motorPin, HIGH); // Enciende el motor después de tiempoEncendido + tiempoApagado
+      tiempoInicio = millis(); // Reinicia el tiempo de inicio
+    }
+  }
 }
